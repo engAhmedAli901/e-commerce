@@ -2,61 +2,72 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 
 const handler = NextAuth({
-    session: {
+  session: {
     strategy: "jwt"
   },
-  providers:[
+
+  providers: [
     CredentialsProvider({
-         name: 'Credentials',
-         credentials:{
-            email:{},
-            password:{}
-         },
-        async authorize(credentials){
-            const res = await fetch(`https://ecommerce.routemisr.com/api/v1/auth/signin`,{
-                method:"POST",
-                body: JSON.stringify({
-                    email: credentials?.email,
-                    password: credentials?.password
-                }),
-                headers:{
-                    "content-type":"application/json"
-                }
-            })
-            const payload = await res.json()
-            console.log(payload);
-            if(payload.message === "success"){
-                return {
-                    id: payload.user.email,
-                    user: payload.user,
-                    token: payload.token
-                }
-            }
-            else{
-                // throw new Error(payload.message)
-                return null
-            }
-            
-         }
+      name: "Credentials",
+      credentials: {
+        email: {},
+        password: {}
+      },
+
+      async authorize(credentials) {
+        const res = await fetch(`https://ecommerce.routemisr.com/api/v1/auth/signin`, {
+          method: "POST",
+          body: JSON.stringify({
+            email: credentials?.email,
+            password: credentials?.password
+          }),
+          headers: {
+            "content-type": "application/json"
+          }
+        })
+
+        const payload = await res.json()
+
+        if (payload.message !== "success") return null
+
+        return {
+          id: payload.user._id,
+          email: payload.user.email,
+          name: payload.user.name,
+          accessToken: payload.token
+        }
+      }
     })
   ],
-  callbacks:{
-    jwt: ({user , token})=>{
-        if(user){
-            token.user = user.user
-        token.token = user.token
-        }
-        return token
+
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+        token.email = user.email
+        token.name = user.name
+        token.accessToken = user.accessToken
+      }
+      return token
     },
-    session : ({session , token})=>{
-        session.user = token.user
-        return session
+
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string
+        session.user.email = token.email as string
+        session.user.name = token.name as string
+      }
+
+      session.accessToken = token.accessToken as string
+      return session
     }
   },
-  pages:{
-    signIn : "/login"
+
+  pages: {
+    signIn: "/login"
   },
-  secret:process.env.AUTH_SECRET
+
+  secret: process.env.NEXTAUTH_SECRET
 })
 
 export { handler as GET, handler as POST }
